@@ -27,20 +27,39 @@ export HOMEBREW_NO_ANALYTICS_MESSAGE_OUTPUT=1
 # verify the installation exists
 # default to /opt/homebrew to make development/testing easier
 homebrew_directory="${2:-/opt/homebrew}"
+homebrew_prefix="${homebrew_directory}"
 if [[ ! -d "${homebrew_directory:?}" ]]
 then
   echo "No directory at ${homebrew_directory}!" >&2
   exit 1
 fi
 
-cd "${homebrew_directory}"
+# Move the package payload to the Intel default prefix.
+if [[ $(uname -m) == "x86_64" ]]
+then
+  if [[ -f "/usr/local/bin/brew" && -d "/usr/local/Homebrew" ]]
+  then
+    cp -pRL "${homebrew_directory}/.git" "/usr/local/Homebrew/"
+    mv "${homebrew_directory}/cache_api" "/usr/local/Homebrew/"
+  else
+    mkdir -vp /usr/local/bin
+    mv "${homebrew_directory}" "/usr/local/Homebrew/"
+    ln -svf "../Homebrew/bin/brew" "/usr/local/bin/brew"
+  fi
+
+  rm -rf "${homebrew_directory}"
+  homebrew_directory="/usr/local/Homebrew"
+  homebrew_prefix="/usr/local"
+fi
+
+cd "${homebrew_prefix}"
 
 refuse_symlinked_directories() {
   for dir in Caskroom Cellar Frameworks bin etc include lib opt sbin share var var/homebrew var/homebrew/linked
   do
     if [[ -L "${dir}" ]]
     then
-      echo "Refusing to operate on symlinked ${dir} in ${homebrew_directory}." >&2
+      echo "Refusing to operate on symlinked ${dir} in ${homebrew_prefix}." >&2
       exit 1
     fi
   done
@@ -53,14 +72,14 @@ enter_managed_directory() {
 
   if [[ -L "${directory}" ]]
   then
-    echo "Refusing to operate on symlinked ${display_path} in ${homebrew_directory}." >&2
+    echo "Refusing to operate on symlinked ${display_path} in ${homebrew_prefix}." >&2
     exit 1
   fi
 
   cd -P "${directory}"
   if [[ "$(pwd -P)" != "${expected_path}" ]]
   then
-    echo "Refusing to operate on ${display_path} outside ${homebrew_directory}." >&2
+    echo "Refusing to operate on ${display_path} outside ${homebrew_prefix}." >&2
     exit 1
   fi
 }
@@ -92,7 +111,12 @@ then
   # Keep in sync with brew.sh and Homebrew/install's install.sh.
   umask go-w
   homebrew_pkg_mode="u=rwx,go-w"
-  chmod -R go-w .
+  if [[ "${homebrew_directory}" == "/usr/local/Homebrew" ]]
+  then
+    chmod -R go-w Caskroom Cellar Frameworks Homebrew etc include lib opt sbin share var
+  else
+    chmod -R go-w .
+  fi
 fi
 
 # create missing directories
@@ -133,7 +157,13 @@ chmod -h "${homebrew_pkg_mode}" Caskroom Cellar Frameworks bin etc include lib o
   enter_managed_directory linked "${prefix_directory}/var/homebrew/linked" var/homebrew/linked
   chmod "${homebrew_pkg_mode}" .
 )
-chown -R "${homebrew_pkg_user}:${homebrew_pkg_group}" .
+if [[ "${homebrew_directory}" == "/usr/local/Homebrew" ]]
+then
+  chown -h "${homebrew_pkg_user}:${homebrew_pkg_group}" bin bin/brew etc include lib opt sbin share var
+  chown -h -R "${homebrew_pkg_user}:${homebrew_pkg_group}" Caskroom Cellar Frameworks Homebrew var/homebrew
+else
+  chown -R "${homebrew_pkg_user}:${homebrew_pkg_group}" .
+fi
 
 rm -rf "${homebrew_directory}/.git/hooks" "${homebrew_directory}/.gitconfig" "${homebrew_directory}/.config/git"
 # The package already contains a stable checkout; reset it when Git is available.
@@ -171,8 +201,8 @@ fi
 rm -vrf "${homebrew_directory}/cache_api"
 
 # add Homebrew to the default PATH
-if [[ -d "/etc/paths.d" ]]
+if [[ -d "/etc/paths.d" && "${homebrew_directory}" == "/opt/homebrew" ]]
 then
-  echo "${homebrew_directory}/bin" >/etc/paths.d/homebrew
+  echo "/opt/homebrew/bin" >/etc/paths.d/homebrew
   chown root:wheel /etc/paths.d/homebrew
 fi

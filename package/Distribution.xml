@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <installer-gui-script minSpecVersion="2">
   <pkg-ref id="sh.brew.homebrew"/>
-  <options customize="never" hostArchitectures="arm64" rootVolumeOnly="true"/>
+  <options customize="never" hostArchitectures="x86_64,arm64" rootVolumeOnly="true"/>
   <volume-check>
     <allowed-os-versions>
         <os-version min="15.0.0"/>
@@ -29,4 +29,34 @@
   <allowed-os-versions>
     <os-version min="15.0.0"/>
   </allowed-os-versions>
+
+  <script>
+    // See https://developer.apple.com/documentation/installer_js
+    function is_intel() {
+      try {
+        return system.sysctl("hw.machine") == "x86_64";
+      } catch (error) {
+        return false;
+      }
+    }
+
+    function installation_check() {
+      if (!system.files.fileExistsAtPath("/Library/Developer/CommandLineTools/usr/bin/git")) {
+        my.result.title = "Command Line Tools (CLT) are missing";
+        my.result.message = "You must install the Command Line Tools (CLT) before installing Homebrew by running `xcode-select --install` from a Terminal.";
+        my.result.type = "Fatal";
+        return false;
+      }
+
+      if (is_intel()) {
+        my.result.title = "Intel Macs are a Tier 3 configuration";
+        my.result.message = "Homebrew no longer routinely builds bottles for Intel Macs, so packages will increasingly be built from source, and issues affecting only Intel may be closed without investigation. See https://docs.brew.sh/Support-Tiers#tier-3";
+        my.result.type = "Warning";
+        return false;
+      }
+
+      return true;
+    }
+  </script>
+  <installation-check script="installation_check()" />
 </installer-gui-script>

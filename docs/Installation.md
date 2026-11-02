@@ -13,7 +13,7 @@ It is a careful script; it can be run even if you have stuff installed in the pr
 It tells you exactly what it will do before it does it too.
 You have to confirm everything it will do before it starts.
 
-The macOS `.pkg` installer supports only Apple Silicon and also installs Homebrew to its default prefix (`/opt/homebrew`) for the same reasons as above.
+The macOS `.pkg` installer supports Apple Silicon and Intel Macs, installing Homebrew to its default prefix (`/opt/homebrew` on Apple Silicon and `/usr/local` on Intel) for the same reasons as above.
 It is available on [Homebrew/brew's latest GitHub release](https://github.com/Homebrew/brew/releases/latest).
 To specify an alternate install user, such as when the package is installed at the login window before a user has logged in, create `/var/tmp/.homebrew_pkg_user.plist` with a `HOMEBREW_PKG_USER` value before installation:
 
